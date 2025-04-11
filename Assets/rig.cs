@@ -16,7 +16,12 @@ public class IndexFingerUDPControl : MonoBehaviour
     public Vector3 jointB_CurlRotation = new Vector3(60f, 0f, 0f);
     public Vector3 jointC_CurlRotation = new Vector3(40f, 0f, 0f);
 
-    private float curl = 0f; // 0 to 1
+    [Header("Smoothing")]
+    public float smoothSpeed = 10f; // Adjust for smoother/faster transitions
+
+    private float curl = 0f;        // Current curl value
+    private float targetCurl = 0f;  // Target curl received from UDP
+
     private UdpClient udpClient;
     private Thread receiveThread;
 
@@ -31,6 +36,9 @@ public class IndexFingerUDPControl : MonoBehaviour
 
     void Update()
     {
+        // Smoothly interpolate current curl to targetCurl
+        curl = Mathf.Lerp(curl, targetCurl, Time.deltaTime * smoothSpeed);
+
         // Apply rotation based on curl (0–1)
         if (jointA) jointA.localRotation = Quaternion.Euler(jointA_CurlRotation * curl);
         if (jointB) jointB.localRotation = Quaternion.Euler(jointB_CurlRotation * curl);
@@ -48,7 +56,7 @@ public class IndexFingerUDPControl : MonoBehaviour
                 byte[] data = udpClient.Receive(ref remoteEP);
                 string message = Encoding.ASCII.GetString(data);
                 int bend = int.Parse(message); // Expecting 0–100
-                curl = Mathf.Clamp01(bend / 100f);
+                targetCurl = Mathf.Clamp01(bend / 100f); // Set target only
             }
             catch (SocketException ex)
             {
