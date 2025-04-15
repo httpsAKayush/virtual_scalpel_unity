@@ -1050,7 +1050,6 @@ public class MeshCutter : MonoBehaviour
         GameObject cutPart = CreatePiece(cutVerts, cutTris, obj, "Cut Part", Color.red);
         GameObject remaining = CreatePiece(remainVerts, remainTris, obj, "Remaining Part", Color.white);
 
-        // 💥 DESTROY the cut part immediately
         if (cutPart != null)
             Destroy(cutPart);
 
@@ -1154,7 +1153,6 @@ public class MeshCutter : MonoBehaviour
 
         var mat = new Material(source.GetComponent<MeshRenderer>().material);
         mat.color = color;
-
         go.AddComponent<MeshRenderer>().material = mat;
 
         var mc = go.AddComponent<MeshCollider>();

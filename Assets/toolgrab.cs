@@ -26,6 +26,6 @@ public class SimpleGrabber : MonoBehaviour
         {
             grabbedObject.transform.position = transform.position;
             grabbedObject.transform.rotation = transform.rotation;
-        }
-    }
+        }
+    }
 }

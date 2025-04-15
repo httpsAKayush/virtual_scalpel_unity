@@ -754,6 +754,197 @@
 //         receiveThread?.Join();
 //     }
 // }
+/////////////////////////////////////////////////////////
+/// without joystick
+// using UnityEngine;
+// using System.Net;
+// using System.Net.Sockets;
+// using System.Text;
+// using System.Threading;
+// using System.Collections.Generic;
+
+// public class HandWithOrientationController : MonoBehaviour
+// {
+//     [Header("Finger Transforms")]
+//     public Transform indexA, indexB, indexC;
+//     public Transform middleA, middleB, middleC;
+//     public Transform ringA, ringB, ringC;
+//     public Transform thumbA, thumbB, thumbC;
+//     public Transform pinkyA, pinkyB, pinkyC;
+
+//     [Header("Target Object for Orientation")]
+//     public Transform targetObject;
+
+//     [Header("Max Curl Angles (X-axis, inward curl)")]
+//     public float indexCurlA = 45f, indexCurlB = 60f, indexCurlC = 40f;
+//     public float middleCurlA = 50f, middleCurlB = 65f, middleCurlC = 45f;
+//     public float ringCurlA = 50f, ringCurlB = 60f, ringCurlC = 40f;
+//     public float thumbCurlA = 40f, thumbCurlB = 50f, thumbCurlC = 35f;
+//     public float pinkyCurlA = 30f, pinkyCurlB = 55f, pinkyCurlC = 35f;
+
+//     private float[] curls = new float[4]; // thumb, index, middle, ring
+//     private float pitch, roll, yaw;
+
+//     private readonly object dataLock = new object();
+//     private UdpClient udpClient;
+//     private Thread receiveThread;
+//     private bool isRunning = true;
+
+//     private Dictionary<Transform, Quaternion> baseRotations = new Dictionary<Transform, Quaternion>();
+//     private Quaternion baseOrientation;
+
+//     // Orientation reference (for relative movement)
+//     private bool orientationReferenceSet = false;
+//     private float referencePitch, referenceRoll, referenceYaw;
+
+//     void Start()
+//     {
+//         udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, 25667));
+//         udpClient.EnableBroadcast = true;
+
+//         receiveThread = new Thread(ReceiveData);
+//         receiveThread.IsBackground = true;
+//         receiveThread.Start();
+//         Debug.Log("Hand With Orientation UDP Receiver started...");
+
+//         // Cache base local rotations for all finger joints
+//         CacheBaseRotation(indexA); CacheBaseRotation(indexB); CacheBaseRotation(indexC);
+//         CacheBaseRotation(middleA); CacheBaseRotation(middleB); CacheBaseRotation(middleC);
+//         CacheBaseRotation(ringA); CacheBaseRotation(ringB); CacheBaseRotation(ringC);
+//         CacheBaseRotation(thumbA); CacheBaseRotation(thumbB); CacheBaseRotation(thumbC);
+//         CacheBaseRotation(pinkyA); CacheBaseRotation(pinkyB); CacheBaseRotation(pinkyC);
+
+//         if (targetObject != null)
+//             baseOrientation = targetObject.localRotation;
+//     }
+
+//     void LateUpdate()
+//     {
+//         float[] fingers = new float[4];
+//         float localPitch, localRoll, localYaw;
+//         bool refSet;
+
+//         lock (dataLock)
+//         {
+//             curls.CopyTo(fingers, 0);
+//             localPitch = pitch;
+//             localRoll = roll;
+//             localYaw = yaw;
+//             refSet = orientationReferenceSet;
+//         }
+
+//         // Apply finger curls
+//         ApplyCurlXOnly(indexA, indexCurlA, fingers[1]);
+//         ApplyCurlXOnly(indexB, indexCurlB, fingers[1]);
+//         ApplyCurlXOnly(indexC, indexCurlC, fingers[1]);
+
+//         ApplyCurlXOnly(middleA, middleCurlA, fingers[2]);
+//         ApplyCurlXOnly(middleB, middleCurlB, fingers[2]);
+//         ApplyCurlXOnly(middleC, middleCurlC, fingers[2]);
+
+//         ApplyCurlXOnly(ringA, ringCurlA, fingers[3]);
+//         ApplyCurlXOnly(ringB, ringCurlB, fingers[3]);
+//         ApplyCurlXOnly(ringC, ringCurlC, fingers[3]);
+
+//         ApplyCurlXOnly(thumbA, thumbCurlA, fingers[0]);
+//         ApplyCurlXOnly(thumbB, thumbCurlB, fingers[0]);
+//         ApplyCurlXOnly(thumbC, thumbCurlC, fingers[0]);
+
+//         float pinkyCurl = fingers[3] * 0.7f;
+//         ApplyCurlXOnly(pinkyA, pinkyCurlA, pinkyCurl);
+//         ApplyCurlXOnly(pinkyB, pinkyCurlB, pinkyCurl);
+//         ApplyCurlXOnly(pinkyC, pinkyCurlC, pinkyCurl);
+
+//         // Apply relative orientation
+//         if (targetObject != null && refSet)
+//         {
+//             float deltaPitch = localPitch - referencePitch;
+//             float deltaRoll = localRoll - referenceRoll;
+//             float deltaYaw = localYaw - referenceYaw;
+
+//             Quaternion deltaRotation = Quaternion.Euler(
+//                 -deltaYaw,        // pitch from ESP = X-axis
+//                 -deltaRoll,      // yaw from ESP = Y-axis, inverted
+//                 deltaPitch       // roll from ESP = Z-axis
+//             );
+
+//             targetObject.localRotation = baseOrientation * deltaRotation;
+//         }
+//     }
+
+//     private void CacheBaseRotation(Transform joint)
+//     {
+//         if (joint != null)
+//             baseRotations[joint] = joint.localRotation;
+//     }
+
+//     private void ApplyCurlXOnly(Transform joint, float maxAngle, float curlAmount)
+//     {
+//         if (joint == null || !baseRotations.ContainsKey(joint)) return;
+
+//         Quaternion baseRot = baseRotations[joint];
+//         Quaternion xRotation = Quaternion.Euler(-maxAngle * curlAmount, 0f, 0f);
+//         joint.localRotation = baseRot * xRotation;
+//     }
+
+//     private void ReceiveData()
+//     {
+//         IPEndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
+//         while (isRunning)
+//         {
+//             try
+//             {
+//                 byte[] data = udpClient.Receive(ref remoteEP);
+//                 string message = Encoding.ASCII.GetString(data);
+//                 string[] tokens = message.Split(',');
+
+//                 if (tokens.Length >= 7)
+//                 {
+//                     float newPitch = float.Parse(tokens[0]);
+//                     float newRoll = float.Parse(tokens[1]);
+//                     float newYaw = float.Parse(tokens[2]);
+
+//                     float[] newCurls = new float[4];
+//                     for (int i = 0; i < 4; i++)
+//                     {
+//                         if (int.TryParse(tokens[3 + i], out int val))
+//                             newCurls[i] = Mathf.Clamp01(val / 100f);
+//                     }
+
+//                     lock (dataLock)
+//                     {
+//                         if (!orientationReferenceSet)
+//                         {
+//                             referencePitch = newPitch;
+//                             referenceRoll = newRoll;
+//                             referenceYaw = newYaw;
+//                             orientationReferenceSet = true;
+//                             Debug.Log("Orientation reference set: " +
+//                                       $"Pitch={referencePitch}, Roll={referenceRoll}, Yaw={referenceYaw}");
+//                         }
+
+//                         pitch = newPitch;
+//                         roll = newRoll;
+//                         yaw = newYaw;
+//                         newCurls.CopyTo(curls, 0);
+//                     }
+//                 }
+//             }
+//             catch (SocketException ex)
+//             {
+//                 Debug.Log("Socket exception: " + ex.Message);
+//                 break;
+//             }
+//         }
+//     }
+
+//     void OnApplicationQuit()
+//     {
+//         isRunning = false;
+//         udpClient?.Close();
+//         receiveThread?.Join();
+//     }
+// }
 using UnityEngine;
 using System.Net;
 using System.Net.Sockets;
@@ -780,8 +971,15 @@ public class HandWithOrientationController : MonoBehaviour
     public float thumbCurlA = 40f, thumbCurlB = 50f, thumbCurlC = 35f;
     public float pinkyCurlA = 30f, pinkyCurlB = 55f, pinkyCurlC = 35f;
 
+    [Header("Joystick Settings")]
+    public float joystickSensitivity = 0.002f;  // public variable for tuning movement
+    public int joystickCenter = 2047;           // midpoint of joystick range
+
+    // Parsed values
     private float[] curls = new float[4]; // thumb, index, middle, ring
     private float pitch, roll, yaw;
+    public int joystickX = 0;
+    public int joystickY = 0;
 
     private readonly object dataLock = new object();
     private UdpClient udpClient;
@@ -791,13 +989,14 @@ public class HandWithOrientationController : MonoBehaviour
     private Dictionary<Transform, Quaternion> baseRotations = new Dictionary<Transform, Quaternion>();
     private Quaternion baseOrientation;
 
-    // Orientation reference (for relative movement)
     private bool orientationReferenceSet = false;
     private float referencePitch, referenceRoll, referenceYaw;
 
+    private Vector3 initialPosition;
+
     void Start()
     {
-        udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, 25666));
+        udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, 25667));
         udpClient.EnableBroadcast = true;
 
         receiveThread = new Thread(ReceiveData);
@@ -805,7 +1004,6 @@ public class HandWithOrientationController : MonoBehaviour
         receiveThread.Start();
         Debug.Log("Hand With Orientation UDP Receiver started...");
 
-        // Cache base local rotations for all finger joints
         CacheBaseRotation(indexA); CacheBaseRotation(indexB); CacheBaseRotation(indexC);
         CacheBaseRotation(middleA); CacheBaseRotation(middleB); CacheBaseRotation(middleC);
         CacheBaseRotation(ringA); CacheBaseRotation(ringB); CacheBaseRotation(ringC);
@@ -813,13 +1011,17 @@ public class HandWithOrientationController : MonoBehaviour
         CacheBaseRotation(pinkyA); CacheBaseRotation(pinkyB); CacheBaseRotation(pinkyC);
 
         if (targetObject != null)
+        {
             baseOrientation = targetObject.localRotation;
+            initialPosition = targetObject.localPosition; // store original position
+        }
     }
 
     void LateUpdate()
     {
         float[] fingers = new float[4];
         float localPitch, localRoll, localYaw;
+        int joyX, joyY;
         bool refSet;
 
         lock (dataLock)
@@ -828,6 +1030,8 @@ public class HandWithOrientationController : MonoBehaviour
             localPitch = pitch;
             localRoll = roll;
             localYaw = yaw;
+            joyX = joystickX;
+            joyY = joystickY;
             refSet = orientationReferenceSet;
         }
 
@@ -853,7 +1057,7 @@ public class HandWithOrientationController : MonoBehaviour
         ApplyCurlXOnly(pinkyB, pinkyCurlB, pinkyCurl);
         ApplyCurlXOnly(pinkyC, pinkyCurlC, pinkyCurl);
 
-        // Apply relative orientation
+        // Apply orientation
         if (targetObject != null && refSet)
         {
             float deltaPitch = localPitch - referencePitch;
@@ -861,12 +1065,18 @@ public class HandWithOrientationController : MonoBehaviour
             float deltaYaw = localYaw - referenceYaw;
 
             Quaternion deltaRotation = Quaternion.Euler(
-                deltaYaw,        // pitch from ESP = X-axis
-                -deltaRoll,      // yaw from ESP = Y-axis, inverted
-                deltaPitch       // roll from ESP = Z-axis
+                -deltaYaw,
+                -deltaRoll,
+                deltaPitch
             );
 
             targetObject.localRotation = baseOrientation * deltaRotation;
+
+            // Calculate joystick-based movement
+            float deltaZ = (joyY - joystickCenter) * joystickSensitivity *0.01f;
+            float deltaX = (joyX - joystickCenter) * joystickSensitivity *0.01f;
+
+            targetObject.localPosition = initialPosition + new Vector3(deltaX, 0f, -deltaZ);
         }
     }
 
@@ -896,7 +1106,7 @@ public class HandWithOrientationController : MonoBehaviour
                 string message = Encoding.ASCII.GetString(data);
                 string[] tokens = message.Split(',');
 
-                if (tokens.Length >= 7)
+                if (tokens.Length >= 9)
                 {
                     float newPitch = float.Parse(tokens[0]);
                     float newRoll = float.Parse(tokens[1]);
@@ -904,34 +1114,33 @@ public class HandWithOrientationController : MonoBehaviour
 
                     float[] newCurls = new float[4];
                     for (int i = 0; i < 4; i++)
-                    {
-                        if (int.TryParse(tokens[3 + i], out int val))
-                            newCurls[i] = Mathf.Clamp01(val / 100f);
-                    }
+                        newCurls[i] = Mathf.Clamp01(float.Parse(tokens[3 + i]) / 100f);
+
+                    int joyX = int.Parse(tokens[7]);
+                    int joyY = int.Parse(tokens[8]);
 
                     lock (dataLock)
                     {
+                        pitch = newPitch;
+                        roll = newRoll;
+                        yaw = newYaw;
+                        curls = newCurls;
+                        joystickX = joyX;
+                        joystickY = joyY;
+
                         if (!orientationReferenceSet)
                         {
                             referencePitch = newPitch;
                             referenceRoll = newRoll;
                             referenceYaw = newYaw;
                             orientationReferenceSet = true;
-                            Debug.Log("Orientation reference set: " +
-                                      $"Pitch={referencePitch}, Roll={referenceRoll}, Yaw={referenceYaw}");
                         }
-
-                        pitch = newPitch;
-                        roll = newRoll;
-                        yaw = newYaw;
-                        newCurls.CopyTo(curls, 0);
                     }
                 }
             }
-            catch (SocketException ex)
+            catch (System.Exception ex)
             {
-                Debug.Log("Socket exception: " + ex.Message);
-                break;
+                Debug.LogWarning("UDP Receive Error: " + ex.Message);
             }
         }
     }
@@ -940,6 +1149,6 @@ public class HandWithOrientationController : MonoBehaviour
     {
         isRunning = false;
         udpClient?.Close();
-        receiveThread?.Join();
+        receiveThread?.Abort();
     }
 }
