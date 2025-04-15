@@ -3,12 +3,14 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - Hand
+  - Tool
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - stitchable
   - Water
   - UI
   - 
